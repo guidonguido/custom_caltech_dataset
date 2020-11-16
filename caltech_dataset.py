@@ -14,13 +14,86 @@ def pil_loader(path):
         img = Image.open(f)
         return img.convert('RGB')
 
+IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp')
+
+def has_file_allowed_extension(filename, extensions = IMG_EXTENSIONS):
+    """Checks if a file is an allowed extension.
+
+    Args:
+        filename (string): path to a file
+        extensions (tuple of strings): extensions to consider (lowercase)
+
+    Returns:
+        bool: True if the filename ends with one of given extensions
+    """
+    return filename.lower().endswith(extensions)
+
+def make_dataset(
+    directory,
+    split,
+    class_to_idx,
+):
+    instances = []
+    directory = os.path.expanduser(directory)
+
+    split += ".txt"
+    with open(split) as file_in:
+        lines = []
+        for line in file_in:
+            lines.append(line)
+    
+    for line in lines:
+        target_class = line.split("/")[0]
+        class_index = class_to_idx[target_class]
+
+        if(target_class == "BACKGROUND_Google"):
+            continue
+
+        #target_dir = os.path.join(directory, target_class)
+        path = os.path.join(directory, line)
+        if has_file_allowed_extension(path):
+            item = path, class_index
+            instances.append(item)
+
+    return instances
+
 
 class Caltech(VisionDataset):
     def __init__(self, root, split='train', transform=None, target_transform=None):
         super(Caltech, self).__init__(root, transform=transform, target_transform=target_transform)
-
+        
         self.split = split # This defines the split you are going to use
                            # (split files are called 'train.txt' and 'test.txt')
+        
+        classes, class_to_idx = self._find_classes(self.root)
+        samples = make_dataset(self.root, split, class_to_idx)
+        if len(samples) == 0:
+            msg = "Found 0 files in subfolders of: {}\n".format(self.root)
+            raise RuntimeError(msg)
+
+        self.extensions = IMG_EXTENSIONS
+        self.classes = classes
+        self.class_to_idx = class_to_idx
+        self.samples = samples
+        self.targets = [s[1] for s in samples]
+
+    def _find_classes(self, dir):
+        """
+        Finds the class folders in a dataset.
+
+        Args:
+            dir (string): Root directory path.
+
+        Returns:
+            tuple: (classes, class_to_idx) where classes are relative to (dir), and class_to_idx is a dictionary.
+
+        Ensures:
+            No class is a subdirectory of another.
+        """
+        classes = [d.name for d in os.scandir(dir) if (d.is_dir() and d.name != "BACKGROUNG_Google")]
+        classes.sort()
+        class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
+        return classes, class_to_idx
 
         '''
         - Here you should implement the logic for reading the splits files and accessing elements
@@ -41,9 +114,16 @@ class Caltech(VisionDataset):
             tuple: (sample, target) where target is class_index of the target class.
         '''
 
-        image, label = ... # Provide a way to access image and label via index
-                           # Image should be a PIL Image
-                           # label can be int
+        path, label =  self.samples[index]  # Provided a way to access image and label via index
+                                            # Image should be a PIL Image
+                                            # label can be int
+
+        image = pil_loader(path)
+        
+        if self.transform is not None:
+            sample = self.transform(sample)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
 
         # Applies preprocessing when accessing the image
         if self.transform is not None:
@@ -56,5 +136,5 @@ class Caltech(VisionDataset):
         The __len__ method returns the length of the dataset
         It is mandatory, as this is used by several other components
         '''
-        length = ... # Provide a way to get the length (number of elements) of the dataset
+        length = len(self.samples) # Provide a way to get the length (number of elements) of the dataset
         return length
