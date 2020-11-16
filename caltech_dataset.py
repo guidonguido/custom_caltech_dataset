@@ -16,18 +16,6 @@ def pil_loader(path):
 
 IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp')
 
-def has_file_allowed_extension(filename, extensions = IMG_EXTENSIONS):
-    """Checks if a file is an allowed extension.
-
-    Args:
-        filename (string): path to a file
-        extensions (tuple of strings): extensions to consider (lowercase)
-
-    Returns:
-        bool: True if the filename ends with one of given extensions
-    """
-    return filename.lower().endswith(extensions)
-
 def make_dataset(
     directory,
     split,
@@ -35,8 +23,7 @@ def make_dataset(
 ):
     instances = []
     directory = os.path.expanduser(directory)
-
-    split += ".txt"
+    split = os.path.abspath(os.path.join(directory, os.pardir)) +"/" +split + ".txt"
     with open(split) as file_in:
         lines = []
         for line in file_in:
@@ -44,15 +31,16 @@ def make_dataset(
     
     for line in lines:
         target_class = line.split("/")[0]
-        class_index = class_to_idx[target_class]
-
         if(target_class == "BACKGROUND_Google"):
             continue
 
+        class_index = class_to_idx[target_class]
+        #print("target_class = ", target_class, "/t index = ", class_index)
+
         #target_dir = os.path.join(directory, target_class)
         path = os.path.join(directory, line)
-        if has_file_allowed_extension(path):
-            item = path, class_index
+        if path.lower()[:len(path) -1].endswith("jpg") or path.lower()[:len(path) -1].endswith("jpeg") :
+            item = path[:len(path) -1], class_index
             instances.append(item)
 
     return instances
@@ -90,7 +78,11 @@ class Caltech(VisionDataset):
         Ensures:
             No class is a subdirectory of another.
         """
-        classes = [d.name for d in os.scandir(dir) if (d.is_dir() and d.name != "BACKGROUNG_Google")]
+        classes = []
+        for d in os.scandir(dir):
+          if (d.is_dir() and ""+d.name != "BACKGROUND_Google"):
+            classes.append(d.name)
+
         classes.sort()
         class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
         return classes, class_to_idx
