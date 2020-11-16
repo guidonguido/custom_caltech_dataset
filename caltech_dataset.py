@@ -113,9 +113,9 @@ class Caltech(VisionDataset):
         image = pil_loader(path)
         
         if self.transform is not None:
-            sample = self.transform(sample)
+            sample = self.transform(image)
         if self.target_transform is not None:
-            target = self.target_transform(target)
+            target = self.target_transform(image)
 
         # Applies preprocessing when accessing the image
         if self.transform is not None:
